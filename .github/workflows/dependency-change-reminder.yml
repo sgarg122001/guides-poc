@@ -60,9 +60,11 @@ jobs:
       - name: Post PR comment
         if: steps.detect.outputs.dep_changed == 'true'
         uses: actions/github-script@v7
+        env:
+          CHANGED_FILES: ${{ steps.detect.outputs.changed_files }}
         with:
           script: |
-            const changedFiles = `${{ steps.detect.outputs.changed_files }}`;
+            const changedFiles = process.env.CHANGED_FILES;
             const body = [
               '## :warning: Dependency Changes Detected',
               '',
