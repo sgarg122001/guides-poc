@@ -1,0 +1,11 @@
+<div data-sly-use.threepayandshortcode="com.adobe.aem.guides.wknd.core.models.ThreePayAndShortCodesModel"
+     data-sly-use.placeholderTemplate="core/wcm/components/commons/v1/templates.html"
+     data-sly-test.hasContent="${!threepayandshortcode.empty}"
+     class="cmp-threepaycode">
+    ${threepayandshortcode.shortCodesTitle}
+    ${threepayandshortcode.fieldText}
+    ${threepayandshortcode.label}
+    ${threepayandshortcode.errorMsg}
+    ${threepayandshortcode.buttonTitle}
+</div>
+<sly data-sly-call="${placeholderTemplate.placeholder @ isEmpty=!hasContent}"></sly>
