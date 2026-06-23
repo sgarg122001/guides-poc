@@ -1,0 +1,82 @@
+name: Dependency Change Reminder
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '**/pom.xml'
+      - '**/package.json'
+
+jobs:
+  check-dependency-changes:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect dependency changes
+        id: detect
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+          POM_DEP_CHANGED=false
+          PKG_DEP_CHANGED=false
+          CHANGED_FILES=""
+
+          # Check pom.xml files for <dependencies> section changes
+          while IFS= read -r file; do
+            if git diff "$BASE_SHA" "$HEAD_SHA" -- "$file" | grep -qE '^\+.*<(dependency|groupId|artifactId|version)'; then
+              POM_DEP_CHANGED=true
+              CHANGED_FILES="$CHANGED_FILES\n- \`$file\` (pom.xml)"
+            fi
+          done < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA" | grep 'pom\.xml')
+
+          # Check package.json files for dependencies/devDependencies changes
+          while IFS= read -r file; do
+            if git diff "$BASE_SHA" "$HEAD_SHA" -- "$file" | grep -qE '^\+.*"(dependencies|devDependencies|peerDependencies)"'; then
+              PKG_DEP_CHANGED=true
+              CHANGED_FILES="$CHANGED_FILES\n- \`$file\` (package.json)"
+            fi
+          done < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA" | grep 'package\.json')
+
+          if [ "$POM_DEP_CHANGED" = "true" ] || [ "$PKG_DEP_CHANGED" = "true" ]; then
+            echo "dep_changed=true" >> "$GITHUB_OUTPUT"
+            # Use heredoc to safely set multiline output
+            {
+              echo "changed_files<<EOF"
+              echo -e "$CHANGED_FILES"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "dep_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post PR comment
+        if: steps.detect.outputs.dep_changed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const changedFiles = `${{ steps.detect.outputs.changed_files }}`;
+            const body = [
+              '## :warning: Dependency Changes Detected',
+              '',
+              'This PR modifies dependencies in the following file(s):',
+              changedFiles,
+              '',
+              '**Please update the dependency tracking sheet as well** to keep it in sync with these changes.',
+              '',
+              '_This comment was posted automatically by the Dependency Change Reminder workflow._'
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
