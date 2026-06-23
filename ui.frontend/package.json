@@ -62,7 +62,9 @@
   },
   "dependencies": {
     "jquery": "^3.4.1",
-    "normalize-scss": "^7.0.1"
+    "normalize-scss": "^7.0.1",
+    "lodash": "^4.17.21",
+    "axios": "^1.6.0"
   },
   "browserslist": [
     "last 2 version",
